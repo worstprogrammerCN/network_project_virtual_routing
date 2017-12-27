@@ -674,6 +674,7 @@ public class Host {
         		rows.add(new LinkStateItem(isNeighbour, dest, cost.toString()));
     		}
     	}
+    	linkState.updateUI();
     }
 
 }
