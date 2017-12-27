@@ -7,7 +7,7 @@ import java.util.Set;
 
 // routing = "dst=x.x.x.x&next=x.x.x.x&cost=x"
 public class RoutingTable {
-	
+	private static int INFINITY = 16;
     Map<String, Map<String, RoutingDetail>> routingTable;
     
     public class RoutingDetail {
@@ -181,5 +181,13 @@ public class RoutingTable {
 
     public String toString() {
         return routingTableToString(routingTable);
+    }
+    
+    public static int getInfinity() {
+    	return INFINITY;
+    }
+    
+    public static boolean isInfinity(int cost) {
+    	return cost >= 16;
     }
 }

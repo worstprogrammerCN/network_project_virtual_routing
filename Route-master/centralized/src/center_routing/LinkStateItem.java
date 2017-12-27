@@ -9,8 +9,8 @@ import javax.swing.JTextField;
 //define the link state item
 public class LinkStateItem extends JPanel {
     public JCheckBox checkBox;
-    public JLabel label, label2;
-    public JTextField field;
+    public JLabel label, label2; // destIp, nextHop
+    public JTextField field; // cost
     public LinkStateItem() {
         super();
         checkBox = new JCheckBox();

@@ -24,7 +24,7 @@ public class Controller {
     private int MAX = 5;                            // Max amount of online host
     private int PORT;
     private int CONTROL_PORT = 6666;              
-    private int INFINITY = 16;
+    private int INFINITY = RoutingTable.getInfinity();
     private ServerSocket welcomeSocket;             // Listen for host
     private ControllerThread controllerThread;      // Thread to run controller
     private ArrayList<HostThread> hostThreads;    // Thread list of online host
@@ -168,7 +168,6 @@ public class Controller {
                     if (hostThreads.size() >= MAX) { // The number of connecting hosts has reached the limit 
                         BufferedReader inFromMember = new BufferedReader(new InputStreamReader(connectionSocket.getInputStream()));
                         PrintWriter outToClient = new PrintWriter(connectionSocket.getOutputStream());
-                        String clientSentence = inFromMember.readLine();
                         outToClient.println("Sorry!Too many hosts currently, try again later\n");
                         outToClient.flush();
                         inFromMember.close();
@@ -320,8 +319,9 @@ public class Controller {
                     modifying = true;
                     Map<String, Integer> newLinkCost = new HashMap<>();
                     String linkCost = getContent(message);
+                    System.out.println("receive update messsage: " + message);
                     StringTokenizer st = new StringTokenizer(linkCost, "=&|");
-                    if (st.countTokens() % 4 != 0) {
+                    if (st.countTokens() % 4 != 0) { // form of message is obviously wrong
                         break;
                     }
                     while (st.hasMoreTokens()) {
@@ -332,7 +332,7 @@ public class Controller {
                             break;
                         }
                         dst = st.nextToken();
-                        if (!route.checkIP(dst)) {
+                        if (!route.checkIP(dst)) { // 该IP不属于自己管辖的成员
                             break;
                         }
                         label = st.nextToken();

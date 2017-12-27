@@ -8,8 +8,6 @@ import java.util.*;
 import javax.swing.*;
 import javax.swing.border.*;
 
-import center_routing.RoutingTable.RoutingDetail;
-
 public class Host {
 
     private JFrame frame;
@@ -24,21 +22,10 @@ public class Host {
     // 由{@code linkStateMiddlePanel}和{@code routingRightPanel}横向排列而成
     // 包含了收敛后本节点到其它节点的路由策略， 以及加入这个路由拓扑的host的信息
     private JSplitPane routingPanel;
-    
     private JSplitPane routingRightPanel; // 显示加入这个路由拓扑的host的信息
-    private JButton sendNewLinksStateButton; // 界面右下方的"Update!"按钮， 点击后会把自己与其它节点是否相连的情况进行广播 
-    private JList<LinkStateItem> linkState; // 用于储存界面右边栏每一行的信息
-                                            // 每个{@code LinkStateItem}是一个其它的节点与本节点之间的关系
-    private Vector<LinkStateItem> rows;
-
-    // 界面中间的路由信息面板， 包含title和{@code routingMessageField}
-    // 显示经过收敛，本节点与 其它节点之间的cost，以及到该节点需要经过的下一跳路由
-    private JScrollPane linkStateMiddlePanel; 
-    private JScrollPane routingMessageField;  // 附属于{@code linkStateMiddlePanel}, 储存了经过收敛后，本节点与其它节点之间的cost
-    private DefaultListModel<String> listModel; // 是{@code routingMessageField}的Model
-                                                // 每一项都是一个String, 类似于"{@code dest}  {@code next}  {@code cost}"的形式
-    private JList<String> routingMessage;
-
+    private JScrollPane linkStateMiddlePanel; // 显示经过收敛，本节点与 其它节点之间的cost，以及到该节点需要经过的下一跳路由
+    
+    
     // 由{@code mesPanel}与{@code pingPanel}纵向排列而成
     // 显示调试信息， 以及提供ping其它节点的功能
     private JPanel talkPanel;
@@ -50,6 +37,24 @@ public class Host {
     private JPanel pingPanel;
     private JTextField pingField; // 用于输入要ping的其它节点的ip
     private JButton pingButton; // 点击后向其它节点尝试发送ping
+    
+    // 用于储存界面右边栏每一行的信息
+    // 每个{@code LinkStateItem}是一个其它的节点与本节点之间的关系
+    private Vector<LinkStateItem> rows;  
+    private JList<LinkStateItem> linkState;
+    
+    // 界面右下方的"Update!"按钮 
+    // 点击后会把自己与其它节点是否相连的情况进行广播
+    private JButton sendNewLinksStateButton;
+    
+    // 界面中间的路由信息面板
+    // 储存了经过收敛后，本节点与其它节点之间的cost,
+    private JScrollPane routingMessageField;
+    
+    // 是{@code routingMessageField}的Model
+    // 每一项都是一个String, 类似于"{@code dest}  {@code next}  {@code cost}"的形式
+    private DefaultListModel<String> listModel;
+    private JList<String> routingMessage;
     
     // Whether connect to a controller
     private boolean active;
@@ -74,9 +79,8 @@ public class Host {
     
     // controller的port
     private int CONTROL_PORT = 6666;
-    // 本地节点监听的port
     private int MEMBER_PORT = 7777;
-    private int INFINITY = RoutingTable.getInfinity();
+    private int INFINITY = 16;
 
     RoutingTable route = new RoutingTable();
     Map<String, RoutingTable.RoutingDetail> routingTable = null;
@@ -260,7 +264,6 @@ public class Host {
         if (outToController == null) {
             return;
         }
-        // form is like "UPDATE$dst={@param destIp1}&cost={@param cost1}|dst={@param destIp2}&cost={@param cost2}"
         String updateMessage = "UPDATE$dst=" + localIP + "&cost=0";
         int dst_num = rows.size();
         for (int i = 0; i < dst_num; i++) {
@@ -519,7 +522,6 @@ public class Host {
                     } else if ("UPDATE".equals(mode)) {
                         routingTable = route.parseSingleTable(getContent(message));
                         updateRoutingTableField();
-                        updateRoutingRightPanel();
                         mesField.append("Update routing table.\n");
                         checking = false;
                     } else if ("DELETE".equals(mode)) {
@@ -527,14 +529,14 @@ public class Host {
                         if (!route.checkIP(memberIP)) {
                             continue;
                         }
-                        LinkStateItem itemToDelete = null;
+                        LinkStateItem delete = null;
                         for (LinkStateItem row : rows) {
                             if (row.label.getText().equals(memberIP)) {
-                                itemToDelete = row;
+                                delete = row;
                             }
                         }
-                        if (itemToDelete != null) {
-                            rows.remove(itemToDelete);
+                        if (delete != null) {
+                            rows.remove(delete);
                         }
                         System.out.println("DELETE" + memberIP);
                         linkState.updateUI();
@@ -652,28 +654,10 @@ public class Host {
         }
         listModel.removeAllElements();
         Set<String> dstSet = routingTable.keySet();
-        for (String dst : dstSet) { // 提取routingTable每一项的信息填充在 listModel里
+        for (String dst : dstSet) {
             RoutingTable.RoutingDetail detail = routingTable.get(dst);
             listModel.addElement(padding(dst, 16) + padding(detail.getNext(), 16) + detail.getCost());
         }
-    }
-    
-    public void updateRoutingRightPanel() {
-    	if (routingTable == null) {
-            return;
-        }
-    	for (String dest : routingTable.keySet()) {
-    		rows.removeAllElements();
-    		RoutingTable.RoutingDetail detail = routingTable.get(dest);
-    		String next = detail.getNext();
-    		Integer cost = detail.getCost();
-    		boolean isNeighbour = cost == 1;
-    		if (RoutingTable.isInfinity(cost)) {
-        		rows.add(new LinkStateItem(isNeighbour, dest, "INF"));
-    		} else  {
-        		rows.add(new LinkStateItem(isNeighbour, dest, cost.toString()));
-    		}
-    	}
     }
 
 }
