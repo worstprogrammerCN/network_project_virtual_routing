@@ -1,0 +1,525 @@
+package hello;
+
+import java.io.*;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.*;
+import java.util.regex.Pattern;
+
+
+public class CentralRouterClient {
+
+    public static final String MESSAGE_SPLIT = "|||";
+    public static final String MESSAGE_CONNECT = "Connect";
+    public static final String MESSAGE_DISCONNECT = "Disconnect";
+    public static final String MESSAGE_IPTABLE = "IpTable";
+    public static final String MESSAGE_MESSAGE = "Message";
+
+
+    String localIp = null;
+    private int _port = 6666;
+    public ArrayList<Integer> occupiedPort;
+    private Scanner scanner = new Scanner(System.in);
+
+    // router's serverThread
+    ServerThread serverThread = null;
+    // router's routing table
+    RoutingTable routingTable = null;
+    // central router
+    ClientThread CentralRouterThread = null;
+
+    // initialize Client side, create UI
+    public CentralRouterClient() throws Exception {
+        initIp();
+        initPort();
+        initRouter();
+        createUI();
+    }
+
+    public static void main(String[] args) throws Exception {
+        try {
+            new CentralRouterClient();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void initIp() {
+        try {
+            // get local IP
+            InetAddress hostAddr = InetAddress.getLocalHost();
+            localIp = hostAddr.getHostAddress();
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("Failed to get localhost ip");
+        }
+    }
+
+    private void initPort() throws Exception {
+        occupiedPort = new ArrayList<Integer>();
+        File file = new File("port.txt");
+        if (!file.exists()) {
+            file.createNewFile();
+        }
+        FileReader fr = new FileReader(file);
+        BufferedReader br = new BufferedReader(fr);
+        String line = "";
+        while ((line=br.readLine()) != null) {
+            int portNum = Integer.parseInt(line);
+            occupiedPort.add(portNum);
+        }
+        br.close();
+        fr.close();
+        for (Integer num : occupiedPort) {
+            if (num == _port) {
+                _port++;
+            }
+        }
+        file = new File("port.txt");
+        if (!file.exists()) {
+            file.createNewFile();
+        }
+        FileWriter fw = new FileWriter(file, true);
+        BufferedWriter bw = new BufferedWriter(fw);
+        bw.write(String.valueOf(_port) + "\n");
+        bw.close();
+        fr.close();
+    }
+
+    public void initRouter() {
+        // init server Thread and start the server thread
+        serverThread = new ServerThread();
+        serverThread.startThread();
+        // init routing table
+        routingTable = new RoutingTable();
+    }
+
+    public void quitRouter() {
+        serverThread.stopThread();
+    }
+
+    public void showUsage() {
+        System.out.println("Simple Central Router Usage:");
+        System.out.println("connect <IP> <port> [-central]    : -connect to router with <IP:port>");
+        System.out.println("disconnect <IP> <port>    : -disconnect router with <IP:port>");
+        System.out.println("ipconfig    : -show ip and port on your computer");
+        System.out.println("message <IP> <message>    : -send message to specific IP address");
+        System.out.println("quit:    -disconnect with all routers and exit");
+        System.out.println("iptable:    -print routing table");
+        System.out.println("help:    -get help");
+    }
+
+    public void createUI() throws Exception {
+        showUsage();
+        String command = "";
+        while (true) {
+            System.out.print(">>> ");
+            command = scanner.nextLine();
+            // extract the command by whitespaces
+            StringTokenizer stringTokenizer = new StringTokenizer(command, " ");
+            if (!stringTokenizer.hasMoreTokens()) {
+                continue;
+            }
+            String argument = stringTokenizer.nextToken();
+            if (argument.equals("connect")) {
+                if (stringTokenizer.countTokens() != 2 && stringTokenizer.countTokens() != 3) {
+                    System.out.println("invalid argument (argument count: " + stringTokenizer.countTokens());
+                    continue;
+                }
+                // get IP and Port from shell cmd
+                String ip = stringTokenizer.nextToken();
+                String port = stringTokenizer.nextToken();
+                if (checkIP(ip) && checkPort(port)) {
+                    if (serverThread.findClientThreadByIp(ip) != null) {
+                        System.out.println("Already connected to IP: " + ip);
+                        continue;
+                    }
+                    if (ip.equals(localIp)) {
+                        System.out.println("Should not connect to self address");
+                        continue;
+                    }
+                    // create new ClientThread
+                    ClientThread clientThread = new ClientThread(null, ip);
+                    clientThread.startThread();
+                    if (stringTokenizer.hasMoreTokens()) {
+                        String centralRouter = stringTokenizer.nextToken();
+                        if (centralRouter.equals("-central") && CentralRouterThread == null) {
+                            System.out.println("Connecting to Central Router: " + ip + " " + port);
+                            CentralRouterThread = clientThread;
+                        }
+                    } else {
+                        System.out.println("Connecting to " + ip + " " + port);
+                    }
+                    // if successfully connected to server
+                    // add this Client Thread into server Thread
+                    if (clientThread.connect(ip, port)) {
+                        serverThread.addClientThread(ip, clientThread);
+                        System.out.println("Successfully connected to " + ip + " " + port);
+                        routingTable.insertIntoTable(localIp,ip,"0","1");
+                    } else {
+                        System.out.println("Failed disconnecting from router");
+                    }
+                } else {
+                    System.out.println("Invalid ip or port format");
+                }
+            } else if (argument.equals("quit")) {
+                quitRouter();
+                break;
+            } else if (argument.equals("iptable")) {
+                routingTable.print();
+            } else if (argument.equals("help")) {
+                showUsage();
+            } else if (argument.equals("disconnect")) {
+                if (stringTokenizer.countTokens() != 1) {
+                    System.out.println("Invalid command (argument count: " + stringTokenizer.countTokens() + ")");
+                    continue;
+                }
+                // get IP
+                String ip = stringTokenizer.nextToken();
+                if (checkIP(ip)) {
+                    ClientThread clientThread = serverThread.findClientThreadByIp(ip);
+                    if (clientThread == null) {
+                        System.out.println("Not connected to this IP: "+ ip + ", check again");
+                    } else {
+                        clientThread.stopThread();
+                        serverThread.removeClientThread(ip);
+                    }
+                } else {
+                    System.out.println("Invalid IP format");
+                }
+            } else if (argument.equals("ipconfig")) {
+                System.out.println("Local IP: " + localIp + ", port: " + _port);
+            } else if (argument.equals("message")) {
+                if (stringTokenizer.countTokens() == 2) {
+                    String ip = stringTokenizer.nextToken();
+                    String message = "";
+                    if (checkIP(ip)) {
+                        while (stringTokenizer.hasMoreTokens()) {
+                            message += stringTokenizer.nextToken();
+                            message += " ";
+                        }
+                        if (!ip.equals(localIp)) {
+                            sendMessageToIp(localIp, ip, "", message);
+                        } else {
+                            System.out.println("Should not send to local IP");
+                        }
+                    }
+                } else {
+                    System.out.println("Invalid format (argument count: " + stringTokenizer.countTokens() + ")");
+                }
+            } else {
+                System.out.println("invalid command");
+            }
+        }
+    }
+
+    private boolean checkIP(String str) {
+        Pattern pattern = Pattern
+                .compile("^((\\d|[1-9]\\d|1\\d\\d|2[0-4]\\d|25[0-5]"
+                        + "|[*])\\.){3}(\\d|[1-9]\\d|1\\d\\d|2[0-4]\\d|25[0-5]|[*])$");
+        return pattern.matcher(str).matches();
+    }
+
+    private boolean checkPort(String str) {
+        Pattern pattern = Pattern.compile("\\d+");
+        return pattern.matcher(str).matches();
+    }
+
+    public void sendMessageToIp(String srcIp, String dstIp, String routingInfo, String message) {
+        if (checkIP(srcIp) && checkIP(dstIp)) {
+            ArrayList<String> routingTableLine = routingTable.findTableLineByIp(localIp, dstIp);
+            // if cannot find route from this router, discard the message
+            if (routingTableLine != null) {
+                // find client thread corresponding to "next hop ip address"
+                ClientThread clientThread = serverThread.findClientThreadByIp(routingTableLine.get(3));
+                clientThread.sendMessage(MESSAGE_MESSAGE + MESSAGE_SPLIT
+                                        + srcIp + MESSAGE_SPLIT
+                                        + dstIp + MESSAGE_SPLIT
+                                        + routingInfo + "[" + localIp + "]" + MESSAGE_SPLIT
+                                        + message);
+            } else {
+                System.out.println("Destination IP unreachable");
+            }
+        }
+    }
+
+    private class RoutingTable {
+        // Client router doesn't support delete and update routing table
+        // only support listening to central router, receive message and update current routing table
+
+        ArrayList<ArrayList<String>> _table = new ArrayList<>();
+
+        public RoutingTable() {}
+
+        public void insertIntoTable(String srcIp, String dstIp, String cost, String nextHop) {
+            ArrayList<String> line = new ArrayList<>();
+            line.add(srcIp);
+            line.add(dstIp);
+            line.add(cost);
+            line.add(nextHop);
+            _table.add(line);
+        }
+
+        public void emptyTable() {
+            _table.clear();
+        }
+
+        // find line in table with <source IP, destination IP, *, *>
+        public ArrayList<String> findTableLineByIp(String srcIp, String dstIp) {
+            // the max hop cannot exceed 30 hops
+            int costMax = 30;
+            ArrayList<String> minCostTableItem = null;
+            for (ArrayList<String> _tableItem : _table) {
+                if (_tableItem.get(0).equals(srcIp) && _tableItem.get(1).equals(dstIp)) {
+                    // get cost and compare them
+                    int cost = Integer.parseInt(_tableItem.get(2));
+                    if (costMax > cost) {
+                        costMax = cost;
+                        minCostTableItem = _tableItem;
+                    }
+                }
+            }
+            return minCostTableItem;
+        }
+
+        public void print() {
+            System.out.println("<source ip>  <destination ip>  <cost>  <next hop>");
+            System.out.println("-------------------------------------------------");
+            for (ArrayList<String> arrayList : _table) {
+                for (String content : arrayList) {
+                    System.out.print(content + " ");
+                }
+                System.out.println();
+            }
+        }
+    }
+
+    public class ServerThread extends Thread {
+        private ServerSocket serverSocket;
+        // use desination IP to index Threads
+        private HashMap<String, ClientThread> clientThreads;
+        // constructor
+        public ServerThread() {
+            try {
+                serverSocket = new ServerSocket(_port);
+                clientThreads = new HashMap<>();
+            } catch (Exception e) {
+                System.out.println("Failed Creating ServerSocket");
+            }
+        }
+
+        public void startThread() {
+            super.start();
+        }
+
+        public void run() {
+            while (true) {
+                try {
+                    Socket socket = serverSocket.accept();
+                    // get socket's destination address
+                    String dstIp = socket.getInetAddress().getHostAddress().toString();
+                    // find or create a new thread to handle socket
+                    ClientThread clientThread = findClientThreadByIp(dstIp);
+                    if (clientThread == null) {
+                        clientThread = new ClientThread(socket, dstIp);
+                        clientThread.startThread();
+                        // Format: <Destination IP, ClientThread>
+                        // use IP as index
+                        clientThreads.put(dstIp, clientThread);
+                    }
+                } catch (Exception e) {
+                    System.out.println("Failed Receiving message");
+                }
+            }
+        }
+
+        public ClientThread findClientThreadByIp(String ip) {
+            return clientThreads.get(ip);
+        }
+
+        public void stopThread() {
+            try {
+                if (CentralRouterThread != null) {
+                    CentralRouterThread.sendMessage(MESSAGE_DISCONNECT + MESSAGE_SPLIT + localIp + MESSAGE_SPLIT + CentralRouterThread.dstIp);
+                }
+                // traverse the HashMap
+                Iterator iter = clientThreads.entrySet().iterator();
+                while (iter.hasNext()) {
+                    Map.Entry entry = (Map.Entry) iter.next();
+                    ClientThread clientThread = (ClientThread) entry.getValue();
+                    clientThread.stopThread();
+                }
+                clientThreads.clear();
+                if (serverSocket != null) {
+                    serverSocket.close();
+                    serverSocket = null;
+                }
+                super.stop();
+            } catch (Exception e) {
+                System.out.println("Failed closing Server thread");
+            }
+        }
+
+        public void addClientThread(String ip, ClientThread clientThread) {
+            clientThreads.put(ip, clientThread);
+        }
+
+        public void removeClientThread(String ip) {
+            ClientThread clientThread = findClientThreadByIp(ip);
+            if (clientThread != null) {
+                clientThreads.remove(clientThread);
+            }
+        }
+    }
+
+    public class ClientThread extends Thread {
+        private Socket socket;
+        private BufferedReader bufferedReader;
+        private PrintWriter printWriter;
+        private String dstIp;
+        // constructor
+        public ClientThread(Socket inputSocket, String ip) {
+            try {
+                socket = inputSocket;
+                dstIp = ip;
+                bufferedReader = null;
+                if (socket == null) {
+                    printWriter = null;
+                } else {
+                    printWriter = new PrintWriter(socket.getOutputStream());
+                    System.out.println("Connected to IP <" + ip + ">");
+                }
+            } catch (Exception e) {
+                System.out.println("Failed to create Client Thread");
+            }
+        }
+
+        public void startThread() {
+            super.start();
+        }
+
+        public void stopThread() {
+            if (CentralRouterThread != null) {
+                // if close the thread, inform router
+                CentralRouterThread.sendMessage(MESSAGE_DISCONNECT + MESSAGE_SPLIT
+                                                + localIp + MESSAGE_SPLIT + dstIp);
+            }
+            // inform the current connected router
+            sendMessage(MESSAGE_DISCONNECT);
+            try {
+                if (printWriter != null) {
+                    printWriter.close();
+                    printWriter = null;
+                }
+                if (bufferedReader != null) {
+                    bufferedReader.close();
+                    bufferedReader = null;
+                }
+                if (socket != null) {
+                    socket.close();
+                    socket = null;
+                }
+                super.stop();
+            } catch (Exception e) {
+                System.out.println("Failed disconnecting from router " + dstIp);
+            }
+        }
+        // receive message from socket
+        public void run() {
+            while (true) {
+                try {
+                    if (socket != null) {
+                        bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                        String message = bufferedReader.readLine();
+                        System.out.println("Raw Message:   " + message);
+                        StringTokenizer stringTokenizer = new StringTokenizer(message, MESSAGE_SPLIT);
+                        // analyze the commands
+                        String command = stringTokenizer.nextToken();
+                        if (command.equals(MESSAGE_IPTABLE)) {
+                            // IP table lines
+                            int routingTableCount = Integer.parseInt(stringTokenizer.nextToken());
+                            // update routing table
+                            if (routingTable != null) {
+                                routingTable.emptyTable();
+                            } else {
+                                routingTable = new RoutingTable();
+                            }
+                            for (int i = 0; i < routingTableCount; i++) {
+                                String srcIp = stringTokenizer.nextToken();
+                                String dstIp = stringTokenizer.nextToken();
+                                String cost = stringTokenizer.nextToken();
+                                String nextHop = stringTokenizer.nextToken();
+                                routingTable.insertIntoTable(srcIp, dstIp, cost, nextHop);
+                            }
+                            routingTable.print();
+                        } else if (command.equals(MESSAGE_MESSAGE)) {
+                            String srcIp = stringTokenizer.nextToken();
+                            String dstIp = stringTokenizer.nextToken();
+                            String routingInfo = stringTokenizer.nextToken();
+                            String payload = stringTokenizer.nextToken();
+                            routingInfo += " -> ";
+                            System.out.println("Routing information from message source:");
+                            System.out.println(routingInfo + "[" + localIp + "]");
+                            if (dstIp.equals(localIp)) {
+                                System.out.println("Message from IP <" + srcIp + ">: " + payload);
+                            } else {
+                                sendMessageToIp(srcIp, dstIp, routingInfo, payload);
+                            }
+                        } else if (command.equals(MESSAGE_DISCONNECT)) {
+                            try {
+                                if (printWriter != null) {
+                                    printWriter.close();
+                                    printWriter = null;
+                                }
+                                if (bufferedReader != null) {
+                                    bufferedReader.close();
+                                    bufferedReader = null;
+                                }
+                                if (socket != null) {
+                                    socket.close();
+                                    socket = null;
+                                }
+                                super.stop();
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                            serverThread.removeClientThread(dstIp);
+                            System.out.println("Router " + dstIp + " disconnected from you");
+                        }
+                    }
+                } catch (Exception e) {
+                    System.out.println("Failed reading message");
+                }
+            }
+        }
+
+        public boolean connect(String ip, String port) {
+            if (checkIP(ip) && checkPort(port)) {
+                try {
+                    socket = new Socket(ip, Integer.parseInt(port));
+                    printWriter = new PrintWriter(socket.getOutputStream());
+                    if (CentralRouterThread != null) {
+                        // send routing message to central router
+                        CentralRouterThread.sendMessage(MESSAGE_CONNECT + MESSAGE_SPLIT
+                                + localIp + MESSAGE_SPLIT
+                                + ip + MESSAGE_SPLIT);
+                    }
+                    return true;
+                } catch (Exception e) {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+
+        public void sendMessage(String message) {
+            if (printWriter != null) {
+                printWriter.println(message);
+                printWriter.flush();
+            }
+        }
+    }
+
+}

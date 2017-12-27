@@ -1,0 +1,29 @@
+package hello;
+
+import java.util.ArrayList;
+
+class Test03
+{
+	
+	public static void print(){
+		System.out.println("MTDP");
+	}
+	public static void main(String[] args) {
+		try{
+			((Test03)null).print(); 
+		}catch(NullPointerException e){
+			System.out.println("NullPointerException");
+		}
+	}
+	static void test(StringBuffer s,StringBuffer s2) 
+	{
+		String str = "100|66,55:200|567,90:102|43,54";
+
+		StringTokenizer strToke = new StringTokenizer(str, ":,|");// 默认不打印分隔符
+		// StringTokenizer strToke=new StringTokenizer(str,":,|",true);//打印分隔符
+		// StringTokenizer strToke=new StringTokenizer(str,":,|",false);//不打印分隔符
+		while(strToke.hasMoreTokens()){
+		    System.out.println(strToke.nextToken());
+		}
+	}
+}
