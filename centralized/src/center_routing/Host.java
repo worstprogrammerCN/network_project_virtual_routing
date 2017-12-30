@@ -662,8 +662,8 @@ public class Host {
     	if (routingTable == null) {
             return;
         }
+    	rows.removeAllElements();
     	for (String dest : routingTable.keySet()) {
-    		rows.removeAllElements();
     		RoutingTable.RoutingDetail detail = routingTable.get(dest);
     		String next = detail.getNext();
     		Integer cost = detail.getCost();
