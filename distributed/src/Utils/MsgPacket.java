@@ -9,7 +9,7 @@ public class MsgPacket implements Serializable {
 	private RouteTable routeTable;
 	private String message;
 	private int distance;
-	// ĞÅÏ¢°üµÄÀàĞÍ 0 :×ª·¢Â·ÓÉ±í  1£º×ª·¢ĞÅÏ¢°ü  2:ÁÚ½ÓdistanceĞÅÏ¢´«µİ
+	// ä¿¡æ¯åŒ…çš„ç±»å‹ 0 :è½¬å‘è·¯ç”±è¡¨  1ï¼šè½¬å‘ä¿¡æ¯åŒ…  2:é‚»æ¥distanceä¿¡æ¯ä¼ é€’
 	private int type;
 	private String srcIP;
 	private String desIP;
@@ -22,7 +22,7 @@ public class MsgPacket implements Serializable {
 		desIP = "";
 	}
 	
-	public MsgPacket(RouteTable rt, String msg, int type) { // routeTableÖ»ĞèÒª±» ¹ã²¥£¬ ²»ÓÃÉè¶¨srcIPÓëdesIP
+	public MsgPacket(RouteTable rt, String msg, int type) { // routeTableåªéœ€è¦è¢« å¹¿æ’­ï¼Œ ä¸ç”¨è®¾å®šsrcIPä¸desIP
 		this.routeTable = rt;
 		this.message = msg;
 		this.type = type;
@@ -105,7 +105,7 @@ public class MsgPacket implements Serializable {
         Map<String, Map<String, Integer>> table = routeTable.getTable();
         for (String addr1: table.keySet()) {
             if (isTableHead) {
-                // ²åÈë±íÍ·
+                // æ’å…¥è¡¨å¤´
                 isTableHead = false;
                 for (String addr2 : table.get(addr1).keySet()) {
                     str += "\t" + addr2;

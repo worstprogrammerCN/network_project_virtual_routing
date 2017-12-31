@@ -15,7 +15,7 @@ public class HostChannel {
         this.socket = s;
         this.oos = new ObjectOutputStream(socket.getOutputStream());
         this.ois = new ObjectInputStream(socket.getInputStream());
-        this.distance = ois.readInt(); // 从邻接节点收取cost
+        this.distance = ois.readInt(); // 浠庨偦鎺ヨ妭鐐规敹鍙朿ost
         Logger.logDistance(distance);
     }
     
@@ -24,7 +24,7 @@ public class HostChannel {
         this.oos = new ObjectOutputStream(socket.getOutputStream());
         this.ois = new ObjectInputStream(socket.getInputStream());
         this.distance = distance;
-        sendDistance(); // 告诉邻接节点distance
+        sendDistance(); // 鍛婅瘔閭绘帴鑺傜偣distance
     }
 
     public void sendRouteTable (RouteTable rt) throws IOException {
