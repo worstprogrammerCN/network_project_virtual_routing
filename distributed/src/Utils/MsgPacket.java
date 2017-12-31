@@ -4,9 +4,12 @@ import java.io.Serializable;
 import java.util.Map;
 
 public class MsgPacket implements Serializable {
+	public static int ROUTE_TABLE_PACKET = 0;
+	public static int STRING_PACKET = 1;
 	private RouteTable routeTable;
 	private String message;
-	// type: 0 è½¬å‘è·¯ç”±è¡¨ 1ï¼šè½¬å‘ä¿¡æ¯åŒ…	
+	private int distance;
+	// ĞÅÏ¢°üµÄÀàĞÍ 0 :×ª·¢Â·ÓÉ±í  1£º×ª·¢ĞÅÏ¢°ü  2:ÁÚ½ÓdistanceĞÅÏ¢´«µİ
 	private int type;
 	private String srcIP;
 	private String desIP;
@@ -19,18 +22,25 @@ public class MsgPacket implements Serializable {
 		desIP = "";
 	}
 	
-	public MsgPacket(RouteTable rt, String msg, int _type) {
-		routeTable = rt;
-		message = msg;
-		type = _type;
+	public MsgPacket(RouteTable rt, String msg, int type) { // routeTableÖ»ĞèÒª±» ¹ã²¥£¬ ²»ÓÃÉè¶¨srcIPÓëdesIP
+		this.routeTable = rt;
+		this.message = msg;
+		this.type = type;
 	}
 	
-	public MsgPacket(String msg, int _type, String _srcIP, String _desIP) {
-		routeTable = new RouteTable();
-		message = msg;
-		type = _type;
-		srcIP = _srcIP;
-		desIP = _desIP;
+	public MsgPacket(String msg, int type, String srcIP, String desIP) {
+		this.routeTable = new RouteTable();
+		this.message = msg;
+		this.type = type;
+		this.srcIP = srcIP;
+		this.desIP = desIP;
+	}
+	
+	public MsgPacket(int distance, int type, String srcIP, String desIP) {
+		this.distance = distance;
+		this.type = type;
+		this.srcIP = srcIP;
+		this.desIP = desIP;
 	}
 	
 	public void setRouteTable(RouteTable rt) {
@@ -73,20 +83,29 @@ public class MsgPacket implements Serializable {
 		return type;
 	}
 	
+	public boolean isRouteTablePacket () {
+		return this.type == ROUTE_TABLE_PACKET;
+	}
+	
+	public boolean isStringPacket () {
+		return this.type == STRING_PACKET;
+	}
+	
     @Override
     public String toString() {
         String str = "\n==================================\n";
         boolean isTableHead = true;
-        if (type == 1) {
+        if (type == ROUTE_TABLE_PACKET) {
         	str = "from: [" + srcIP + "] to [" + desIP + "]\nmessage: ";
 			str += message;
 	        str += "\n==================================\n";
         	return str;
 		}
+        // is string packet
         Map<String, Map<String, Integer>> table = routeTable.getTable();
         for (String addr1: table.keySet()) {
             if (isTableHead) {
-                // æ’å…¥è¡¨å¤´
+                // ²åÈë±íÍ·
                 isTableHead = false;
                 for (String addr2 : table.get(addr1).keySet()) {
                     str += "\t" + addr2;

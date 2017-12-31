@@ -27,6 +27,11 @@ public class Logger {
     
     public static void logMsgPacket(MsgPacket msg, String IP) {
         System.out.print(sd.format(new Date()));
-        System.out.println(" /packet Receive from " + IP + ", text " + msg.toString());
+        System.out.println(" /packet Receive from " + IP + ", text: " + msg.toString());
+    }
+    
+    public static void logDistance(int distance) {
+    	System.out.print(sd.format(new Date()));
+        System.out.println(" /distance packet Received, distance: " + distance);
     }
 }

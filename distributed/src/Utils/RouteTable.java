@@ -7,10 +7,10 @@ import java.io.Serializable;
 import java.util.*;
 
 public class RouteTable implements Serializable {
-	// ç´¢å¼•å€¼æ˜¯ `IP:port`
+	// Ë÷ÒıÖµÊÇ `IP:port`
 	private Map<String, Map<String, Integer>> table;
 
-	// 16è§†ä¸ºä¸å¯è¾¾
+	// 16ÊÓÎª²»¿É´ï
 	public static final int INF = 16;
 
 	public RouteTable() {
@@ -31,29 +31,29 @@ public class RouteTable implements Serializable {
 
 	private void addVertex(String address) {
 		Map<String, Integer> newEntry = new HashMap<>();
-		for (String addr : table.keySet()) { // addrä¸ addressä¹‹é—´çš„è·ç¦»éƒ½è®¾ç½®ä¸ºINF
+		for (String addr : table.keySet()) { // addrÓë addressÖ®¼äµÄ¾àÀë¶¼ÉèÖÃÎªINF
 			newEntry.put(addr, INF);
 			table.get(addr).put(address, INF);
 		}
-		newEntry.put(address, 0); // åˆ°è‡ªèº«çš„è·ç¦»ä¸º0
+		newEntry.put(address, 0); // µ½×ÔÉíµÄ¾àÀëÎª0
 		table.put(address, newEntry);
 	}
 
 	public boolean updateTable(RouteTable rt) {
 		boolean changed = false;
 		Map<String, Map<String, Integer>> otherTable = rt.getTable();
-		// è°ƒæ•´è¡¨çš„å¤§å°
+		// µ÷Õû±íµÄ´óĞ¡
 		for (String key : otherTable.keySet()) {
 			if (!table.keySet().contains(key)) {
 				addVertex(key);
 				changed = true;
 			}
 		}
-		// æ›´æ–°è·¯å¾„
+		// ¸üĞÂÂ·¾¶
 		for (String addr1 : otherTable.keySet()) {
 			for (String addr2 : otherTable.get(addr1).keySet()) {
 				Integer distance = otherTable.get(addr1).get(addr2);
-				// æœ‰æ›´ä¼˜çš„è·¯å¾„
+				// ÓĞ¸üÓÅµÄÂ·¾¶
 				if (distance < table.get(addr1).get(addr2)) {
 					table.get(addr1).put(addr2, distance);
 					changed = true;
@@ -61,7 +61,7 @@ public class RouteTable implements Serializable {
 			}
 		}
 
-		// ç¡®è®¤æ˜¯å¦ä¸ºæœ€ä¼˜è·ç¦»  floydç®—æ³•æ±‚å‡ºçŸ©é˜µå„èŠ‚ç‚¹ä¹‹é—´çš„æœ€çŸ­è·ç¦»   //LS
+		// È·ÈÏÊÇ·ñÎª×îÓÅ¾àÀë  floydËã·¨Çó³ö¾ØÕó¸÷½ÚµãÖ®¼äµÄ×î¶Ì¾àÀë   //LS
 		Set<String> hosts = table.keySet();
 		for (String a : hosts) {
 			for (String b : hosts) {
@@ -84,19 +84,25 @@ public class RouteTable implements Serializable {
 	}
 
 	public String getNextRouteAddress(MsgPacket msgPacket, String currentIp,
-			List<HostChannel> connList) {		// è®¡ç®—å¾—åˆ°è¦åˆ°è¾¾åŒ…çš„ç›®çš„IPæ‰€éœ€è¦ç»è¿‡çš„ä¸‹ä¸€è·³è·¯ç”±
+			List<HostChannel> connList) {		// ¼ÆËãµÃµ½Òªµ½´ï°üµÄÄ¿µÄIPËùĞèÒª¾­¹ıµÄÏÂÒ»ÌøÂ·ÓÉ
 		String resIP = "";
 		int minDis = Integer.MAX_VALUE;
-		for (int i = 0; i < connList.size(); i++) {
-			String negIp = connList.get(i).getIP();
-			Logger.logMsgPacket(msgPacket);
-			if (minDis > table.get(negIp).get(msgPacket.getDesIP())
-					+ table.get(currentIp).get(negIp)) {
-				minDis = table.get(negIp).get(msgPacket.getDesIP())
-						+ table.get(currentIp).get(negIp);
+		Logger.logMsgPacket(msgPacket);
+		System.out.println("finding best next hop for msgPacket");
+		for (int i = 0; i < connList.size(); i++) { // Ñ°ÕÒ¾àÀë×î¶ÌµÄÖĞ¼Ìµã
+			HostChannel neg = connList.get(i);
+			String negIp = neg.getIP();
+			int disFromHereToNeg = neg.getDistance();
+			int disFromNegToDes = table.get(negIp).get(msgPacket.getDesIP());
+			int curDis = disFromHereToNeg + disFromNegToDes;
+			System.out.println("current distance sum is " + curDis +
+					"(" + disFromHereToNeg + " + " + disFromNegToDes + ")");
+			if (minDis > curDis) {
+				minDis = curDis;
 				resIP = negIp;
 			}
 		}
+		System.out.println("best next hop is " + resIP + " with distance of " + minDis);
 		return resIP;
 	}
 
@@ -106,7 +112,7 @@ public class RouteTable implements Serializable {
 		boolean isTableHead = true;
 		for (String addr1 : table.keySet()) {
 			if (isTableHead) {
-				// æ’å…¥è¡¨å¤´
+				// ²åÈë±íÍ·
 				isTableHead = false;
 				for (String addr2 : table.get(addr1).keySet()) {
 					str += "\t" + addr2;

@@ -203,7 +203,7 @@ public class Host {
 				while (true) {
 					msgPacket = (MsgPacket) neighbor.getOis().readObject();
 					if (msgPacket != null) {
-						if (msgPacket.getType() == 0) { // 收到的是路由表
+						if (msgPacket.isRouteTablePacket()) { // 收到的是路由表
 							ui.appendRouteInfo(sd.format(new Date()));
 							ui.appendRouteInfo(" / Receive from " + neighbor.getIP() + ", text " + msgPacket.getRouteTable());
 							Logger.logRouteTable(msgPacket.getRouteTable(),
@@ -217,7 +217,7 @@ public class Host {
 								broadcast(neighbor.getIP());
 							}
 							// Logger.logRouteTable(routeTable);
-						} else { // 收到的是信息包
+						} else if (msgPacket.isStringPacket()){ // 收到的是信息包
 							sendMessagePacket(msgPacket);
 							ui.appendLogInfo(sd.format(new Date()));
 							ui.appendLogInfo(" /packet Receive from " + neighbor.getIP() + ", text " + msgPacket.toString());
