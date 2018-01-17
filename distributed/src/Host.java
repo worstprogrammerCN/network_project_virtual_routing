@@ -24,7 +24,7 @@ public class Host {
 	private static Lock lock = new ReentrantLock(true);
 	public String localIP = "";
 
-	public static final int LISTENING_PORT = 4000;
+	public static final int LISTENING_PORT = 8000;
 	private static SimpleDateFormat sd = new SimpleDateFormat("HH:mm:ss");
 
 	public Host() throws IOException {
@@ -60,7 +60,7 @@ public class Host {
 	 * @param address
 	 *            `IP:port`
 	 */
-	public synchronized void broadcast(String address) {
+	public synchronized void broadcast() {
 		synchronized (this) {
 			for (HostChannel hc : connList) {
 				try {
@@ -142,7 +142,7 @@ public class Host {
 									.updateTable(msgPacket.getRouteTable());
 							lock.unlock();
 							if (isChanged) {
-								broadcast(neighbor.getIP());
+								broadcast();
 							}
 
 
@@ -180,7 +180,7 @@ public class Host {
 				lock.lock();
 				routeTable.updateTable(new RouteTable(localIP, IP, distance));
 				lock.unlock();
-				neighbor = new HostChannel(socket);
+				neighbor = new HostChannel(socket, distance);
 			} catch (Exception e) {
 				e.printStackTrace();
 				return;
@@ -197,7 +197,7 @@ public class Host {
 		public void run() {
 			try {
 				// 向邻居发送初始化的链路信息
-				broadcast(neighbor.getIP());
+				broadcast();
 
 				MsgPacket msgPacket = null;
 				while (true) {
@@ -214,7 +214,7 @@ public class Host {
 									.updateTable(msgPacket.getRouteTable());
 							lock.unlock();
 							if (isChanged) {
-								broadcast(neighbor.getIP());
+								broadcast();
 							}
 							// Logger.logRouteTable(routeTable);
 						} else if (msgPacket.isStringPacket()){ // 收到的是信息包
@@ -226,11 +226,16 @@ public class Host {
 					}
 				}
 			} catch (Exception e) {
+				System.out.println(connList.size());
 				e.printStackTrace();
 			} finally {
 				try {
 					neighbor.close();
 					connList.remove(neighbor);
+					// broadcast()
+					// 监听路由表
+					System.out.println(routeTable.toString());
+					System.out.println(connList.size());
 				} catch (Exception e) {
 					e.printStackTrace();
 				}

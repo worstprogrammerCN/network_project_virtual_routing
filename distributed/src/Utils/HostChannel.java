@@ -24,7 +24,10 @@ public class HostChannel {
         this.oos = new ObjectOutputStream(socket.getOutputStream());
         this.ois = new ObjectInputStream(socket.getInputStream());
         this.distance = distance;
+
+        System.out.println("发送distance");
         sendDistance(); // 告诉邻接节点distance
+        System.out.println(this.distance);
     }
 
     public void sendRouteTable (RouteTable rt) throws IOException {
